@@ -35,7 +35,15 @@ class ModelFactory:
                 'classifier__learning_rate': [0.5, 1.0, 1.5]
             }
             return AdaBoostClassifier(**self.kwargs), param_grid
-        
+        elif model_type == '3':
+            from sklearn.svm import SVC
+            param_grid = {
+                'classifier__C': [0.1, 1, 10],
+                'classifier__kernel': ['linear', 'rbf'],
+                'classifier__gamma': ['scale', 'auto']
+            }
+            model = SVC(probability=True, random_state=42)
+            return model, param_grid
         else:
             raise ValueError(f"Model type '{model_type}' is not supported.")
         

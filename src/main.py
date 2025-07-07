@@ -15,7 +15,7 @@ if __name__ == "__main__":
     print(f"Train shape: {X_train.shape}, Val shape: {X_val.shape}")
 
     # Choose the model to train
-    print("\n Which model do you want to train? (1: Random Forest, 2: AdaBoost): ", end="")
+    print("\n Which model do you want to train? (1: Random Forest, 2: AdaBoost, 3: SVM): ", end="")
     choice = input().strip()
     
     # Create ModelFactory instance
@@ -30,7 +30,15 @@ if __name__ == "__main__":
         exit()
     else:
         print("Saving model...")
-        model_name = "RandomForest_model.joblib" if choice == '1' else "AdaBoost_model.joblib"
+        if choice == '1':
+            model_name = "RandomForest_model.joblib"
+        elif choice == '2':
+            model_name = "AdaBoost_model.joblib"
+        elif choice == '3':
+            model_name = "SVM_model.joblib"
+        else:
+            print("Invalid choice. Model not saved.")
+            exit()
         joblib.dump(model, f"models/{model_name}")
         print(f"Model saved as models/{model_name}")
 
