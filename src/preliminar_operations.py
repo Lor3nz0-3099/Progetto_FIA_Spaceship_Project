@@ -23,50 +23,57 @@ class PreliminarOperations:
         plt.title("Label distribution")
         plt.show()
 
-    def drop_unnecessary_columns(self):
-        self.dataset_df = self.dataset_df.drop(['PassengerId'], axis=1)
+    def split_columns(self):
         self.dataset_df[['Deck', 'Cabin_num', 'Side']] = self.dataset_df['Cabin'].str.split('/', expand=True) 
-        self.dataset_df[['Name_', 'Surname']] = self.dataset_df['Name'].str.split(' ', expand=True)
-        self.dataset_df = self.dataset_df.drop(['Name', 'Cabin', 'Name_'], axis=1)
+        self.dataset_df = self.dataset_df.drop(['Name', 'Cabin'], axis=1)
         print(self.dataset_df.head(5))
+
+    def feature_engineering(self):
+        # Extract Group and Passenger_num from PassengerId
+        self.dataset_df['Group'] = self.dataset_df['PassengerId'].str.split('_').str[0].astype(int)
+        self.dataset_df['Passenger_num'] = self.dataset_df['PassengerId'].str.split('_').str[1].astype(int)
+
+        # Calculate FamilySize
+        group_sizes = self.dataset_df['Group'].value_counts()
+        self.dataset_df['FamilySize'] = self.dataset_df['Group'].map(group_sizes)
+
+        # Total spent on board
+        expense_cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
+        self.dataset_df['TotalSpent'] = self.dataset_df[expense_cols].sum(axis=1)
+        print(f"Total spent and Groups on board calculated. Sample:\n{self.dataset_df[['Group', 'TotalSpent', 'Passenger_num']].head(5)}")
+
+        # Convert Cabin_num to numeric, handling errors
+        self.dataset_df['Cabin_num'] = pd.to_numeric(self.dataset_df['Cabin_num'], errors='coerce')
 
     def fill_missing_values(self):
         missing_values = self.dataset_df.isnull().sum()
         print("Missing values in each column:")
         print(missing_values[missing_values > 0])
 
-        # Fill missing Surnames based on Cabin_num similarity
-        surname_mode = self.dataset_df.groupby('Cabin_num')['Surname'].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
-        
-        def fill_surname(row):
-            if pd.isnull(row['Surname']) and pd.notnull(row['Cabin_num']):
-                return surname_mode.get(row['Cabin_num'], np.nan)
-            return row['Surname']
-        
-        self.dataset_df['Surname'] = self.dataset_df.apply(fill_surname, axis=1)
-
-        # Fill missing Deck/Side/Cabin_num based on shared Surname
+        # Fill missing Deck/Side/Cabin_num based on shared Group information
+        # If any of these are missing, we will fill them based on the mode of the group
+        # If all are present, we will not fill them
         def fill_location_from_surname(row):
             if pd.isnull(row['Deck']) or pd.isnull(row['Cabin_num']) or pd.isnull(row['Side']):
-                surname_group = self.dataset_df[self.dataset_df['Surname'] == row['Surname']]
+                group = self.dataset_df[self.dataset_df['Group'] == row['Group']]
                 for col in ['Deck', 'Cabin_num', 'Side']:
                     if pd.isnull(row[col]):
-                        mode_val = surname_group[col].mode()
+                        mode_val = group[col].mode()
                         if not mode_val.empty:
-                            row[col] = mode_val.iloc[0]
+                            row[col] = mode_val.iloc[0] 
             elif pd.isnull(row['HomePlanet']):
-                surname_group = self.dataset_df[self.dataset_df['Surname'] == row['Surname']]
-                mode_homeplanet = surname_group['HomePlanet'].mode()
+                group = self.dataset_df[self.dataset_df['Group'] == row['Group']]
+                mode_homeplanet = group['HomePlanet'].mode()
                 if not mode_homeplanet.empty:
                     row['HomePlanet'] = mode_homeplanet.iloc[0]
             elif pd.isnull(row['Destination']):
-                surname_group = self.dataset_df[self.dataset_df['Surname'] == row['Surname']]
-                mode_destination = surname_group['Destination'].mode()
+                group = self.dataset_df[self.dataset_df['Group'] == row['Group']]
+                mode_destination = group['Destination'].mode()
                 if not mode_destination.empty:
                     row['Destination'] = mode_destination.iloc[0] 
             elif pd.isnull(row['VIP']):
-                surname_group = self.dataset_df[self.dataset_df['Surname'] == row['Surname']]
-                mode_vip = surname_group['VIP'].mode()
+                group = self.dataset_df[self.dataset_df['Group'] == row['Group']]
+                mode_vip = group['VIP'].mode()
                 if not mode_vip.empty:
                     row['VIP'] = mode_vip.iloc[0] 
             return row
@@ -85,7 +92,7 @@ class PreliminarOperations:
 
         # Drop unused or now-unnecessary columns
         self.dataset_df = self.dataset_df.dropna(subset=['Deck', 'Cabin_num', 'Side', 'CryoSleep', 'HomePlanet', 'Destination', 'VIP'])
-        self.dataset_df = self.dataset_df.drop(['Surname'], axis=1)
+        self.dataset_df = self.dataset_df.drop(['PassengerId'], axis=1)
     
     def split_features_and_labels(self):
         label = 'Transported'
@@ -108,7 +115,8 @@ class PreliminarOperations:
         self.load_data()
         self.EDA_analysis()
         self.plot_label_distribution()
-        self.drop_unnecessary_columns()
+        self.split_columns()
+        self.feature_engineering()
         self.fill_missing_values()
         X, y = self.split_features_and_labels()
         X_train, X_val, y_train, y_val = self.split_train_val(X, y)
