@@ -7,7 +7,7 @@ from xgboost import XGBClassifier
 from preprocessingXGBoost import XGBPreprocessor
 # 1. Preprocessing
 preprocessor = XGBPreprocessor()
-X, y = preprocessor.fit_transform('/Users/claudia/Desktop/cartella senza nome 3/train.csv')
+X, y = preprocessor.fit_transform('data/train.csv')
 
 # 2. Split train/test
 X_train, X_test, y_train, y_test = train_test_split(
@@ -25,14 +25,14 @@ if use_grid_search:
         'subsample': [0.8, 1.0]
     }
 
-    xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+    xgb_model = XGBClassifier(eval_metric='logloss', random_state=42)
     grid_search = GridSearchCV(xgb_model, param_grid, cv=3, scoring='accuracy', verbose=1, n_jobs=-1)
     grid_search.fit(X_train, y_train)
 
     print("Best parameters from GridSearchCV:", grid_search.best_params_)
     best_model = grid_search.best_estimator_
 else:
-    best_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+    best_model = XGBClassifier(eval_metric='logloss', random_state=42)
     best_model.fit(X_train, y_train)
 
 # 4. prediction and evaluation
