@@ -3,9 +3,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_curve, auc
 import seaborn as sns
 import matplotlib.pyplot as plt
+from custom_transformers import FeatureEngineeringTransformer, LogicalImputationTransformer, TransformBooleanToInt
 
 class ModelFactory:
     def __init__(self):
@@ -141,7 +142,7 @@ class ModelFactory:
     def preprocessing_pipeline(self, numerical_cols, categorical_cols):
         """
         Builds the preprocessing pipeline for numerical and categorical features.
-        Includes imputers and scalers based on user input.
+        Includes feature engineering, logical imputations, and regular preprocessing based on user input.
         """
         # Choose scaler
         scaler_choice = input("Choose scaling method:\n1. StandardScaler\n2. MinMaxScaler\n3. No scaling\nEnter choice (1/2/3): ").strip()
@@ -169,20 +170,29 @@ class ModelFactory:
             ('onehot', OneHotEncoder(handle_unknown='ignore'))
         ])
 
-        # Combine into ColumnTransformer
-        preprocessor = ColumnTransformer(transformers=[
+        # Main preprocessing pipeline with logical imputations
+        main_preprocessor = ColumnTransformer(transformers=[
             ('num', numerical_transformer, numerical_cols),
             ('cat', categorical_transformer, categorical_cols)
         ])
 
-        return preprocessor
+        # Complete pipeline: feature engineering -> logical imputations -> standard preprocessing
+        full_preprocessor = Pipeline(steps=[
+            ('feature_engineering', FeatureEngineeringTransformer()),
+            ('logical_imputation', LogicalImputationTransformer()),
+            ('preprocessing', main_preprocessor),
+            ('bool2int', TransformBooleanToInt())
+        ])
+
+        return full_preprocessor
 
     def train_and_evaluate_model(self, choice, X_train, y_train, X_val, y_val):
         """
         Builds the full pipeline, runs GridSearchCV, fits on training data,
         and evaluates on training and validation sets.
+        Expects raw data with all original columns (including PassengerId, Cabin, etc.)
         """
-        # Feature lists (customize as needed)
+        # Feature lists (will be created after feature engineering)
         numerical_cols = ['Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Cabin_num', 'TotalSpent', 'FamilySize']
         categorical_cols = ['Deck', 'Side', 'CryoSleep', 'HomePlanet', 'Destination', 'VIP']
 
@@ -223,12 +233,108 @@ class ModelFactory:
         print("Accuracy on validation set:", accuracy_score(y_val, y_pred))
         print("Classification report:\n", classification_report(y_val, y_pred))
 
+        # Create subplots for confusion matrix and ROC curve side by side
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+        
         # Confusion matrix plot
         conf_matrix = confusion_matrix(y_val, y_pred)
-        sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-        plt.xlabel("Predicted")
-        plt.ylabel("Actual")
-        plt.title("Confusion Matrix on Validation Set")
+        sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax1)
+        ax1.set_xlabel("Predicted")
+        ax1.set_ylabel("Actual")
+        ax1.set_title("Confusion Matrix on Validation Set")
+
+        # ROC curve
+        if hasattr(grid_search.best_estimator_.named_steps['classifier'], "predict_proba"):
+            y_proba = grid_search.predict_proba(X_val)[:, 1]
+            fpr, tpr, _ = roc_curve(y_val, y_proba)
+            roc_auc = auc(fpr, tpr)
+
+            ax2.plot(fpr, tpr, color='blue', label='ROC curve (area = {:.2f})'.format(roc_auc))
+            ax2.plot([0, 1], [0, 1], color='red', linestyle='--')
+            ax2.set_xlabel('False Positive Rate')
+            ax2.set_ylabel('True Positive Rate')
+            ax2.set_title('Receiver Operating Characteristic (ROC)')
+            ax2.legend(loc='lower right')
+        else:
+            ax2.text(0.5, 0.5, 'ROC curve not available\nfor this model', 
+                    ha='center', va='center', transform=ax2.transAxes)
+            ax2.set_title('ROC Curve - Not Available')
+        
+        plt.tight_layout()
         plt.show()
 
+        # Feature importances for tree-based models
+        if hasattr(grid_search.best_estimator_.named_steps['classifier'], 'feature_importances_'):
+            self.feature_importances(grid_search.best_estimator_, X_train)
+
         return grid_search.best_estimator_
+    
+    def feature_importances(self, model, X_train):
+        """
+        Computes and plots feature importances for tree-based models.
+        """
+        if hasattr(model.named_steps['classifier'], 'feature_importances_'):
+            importances = model.named_steps['classifier'].feature_importances_
+            
+            # Get feature names from the preprocessor
+            try:
+                # Access the nested preprocessor inside our pipeline
+                main_preprocessor = model.named_steps['preprocessor'].named_steps['preprocessing']
+                feature_names = []
+                
+                # Get numerical feature names
+                numerical_cols = ['Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Cabin_num', 'TotalSpent', 'FamilySize']
+                feature_names.extend(numerical_cols)
+                
+                # Get categorical feature names after OneHotEncoding
+                categorical_cols = ['Deck', 'Side', 'CryoSleep', 'HomePlanet', 'Destination', 'VIP']
+                if hasattr(main_preprocessor.named_transformers_['cat'].named_steps['onehot'], 'get_feature_names_out'):
+                    cat_feature_names = main_preprocessor.named_transformers_['cat'].named_steps['onehot'].get_feature_names_out(categorical_cols)
+                    feature_names.extend(cat_feature_names)
+                else:
+                    # Fallback for older scikit-learn versions
+                    cat_feature_names = main_preprocessor.named_transformers_['cat'].named_steps['onehot'].get_feature_names(categorical_cols)
+                    feature_names.extend(cat_feature_names)
+                    
+            except Exception as e:
+                print(f"Could not extract feature names: {e}")
+                feature_names = [f"Feature_{i}" for i in range(len(importances))]
+            
+            # Ensure we have the right number of feature names
+            if len(feature_names) != len(importances):
+                print(f"Warning: Number of feature names ({len(feature_names)}) doesn't match number of importances ({len(importances)})")
+                feature_names = [f"Feature_{i}" for i in range(len(importances))]
+            
+            # Group one-hot encoded features by their base name
+            grouped_importances = {}
+            for i, feature_name in enumerate(feature_names):
+                # Check if it's a one-hot encoded feature (contains underscore)
+                if '_' in feature_name and feature_name not in ['Cabin_num', 'TotalSpent', 'FamilySize']:
+                    # Extract base name (everything before the last underscore)
+                    base_name = '_'.join(feature_name.split('_')[:-1])
+                    if base_name in grouped_importances:
+                        grouped_importances[base_name] += importances[i]
+                    else:
+                        grouped_importances[base_name] = importances[i]
+                else:
+                    # Keep numerical features as they are
+                    grouped_importances[feature_name] = importances[i]
+            
+            # Convert to lists for plotting
+            grouped_names = list(grouped_importances.keys())
+            grouped_values = list(grouped_importances.values())
+            
+            # Sort by importance
+            indices = sorted(range(len(grouped_values)), key=lambda i: grouped_values[i], reverse=True)
+
+            plt.figure(figsize=(12, 8))
+            plt.title("Feature Importances (Grouped)")
+            plt.bar(range(len(grouped_values)), [grouped_values[i] for i in indices], align='center')
+            plt.xticks(range(len(grouped_values)), [grouped_names[i] for i in indices], rotation=45, ha='right')
+            plt.xlabel("Features")
+            plt.ylabel("Importance")
+            plt.tight_layout()
+            plt.show()
+        else:
+            print("Feature importances are not available for this model.")
+
