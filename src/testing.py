@@ -34,8 +34,8 @@ class Testing:
             'PassengerId': passenger_ids, 
             'Transported': predictions
         })
-        submission_df.to_csv('data/submission_new_pipeline.csv', index=False)
-        print("Predictions saved to submission_new_pipeline.csv")
+        submission_df.to_csv('data/submission_new.csv', index=False)
+        print("Predictions saved to submission_new.csv")
 
         # Return predictions as a DataFrame
         predictions_df = pd.DataFrame({
