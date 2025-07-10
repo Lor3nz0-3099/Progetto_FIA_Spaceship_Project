@@ -15,7 +15,7 @@ if __name__ == "__main__":
     print(f"Train shape: {X_train.shape}, Val shape: {X_val.shape}")
 
     # Choose the model to train
-    print("\nWhich model do you want to train?\n1: Random Forest\n2: AdaBoost\n3: SVM\n4: XGBoost\n5:CatBoost\nEnter choice (1/2/3/4/5): ", end="")
+    print("\nWhich model do you want to train?\n1: Random Forest\n2: AdaBoost\n3: SVM\n4: XGBoost\n5: CatBoost\n6: Stacked Classifier\nEnter choice (1/2/3/4/5/6): ", end="")
     choice = input().strip()
     
     # Create ModelFactory instance
@@ -40,6 +40,8 @@ if __name__ == "__main__":
             model_name = "XGBoost_model.joblib"
         elif choice == '5':
             model_name = "CatBoost_model.joblib"
+        elif choice == '6':
+            model_name = "StackedClassifier_model.joblib"
         else:
             print("Invalid choice. Model not saved.")
             exit()
