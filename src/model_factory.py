@@ -87,31 +87,30 @@ class ModelFactory:
         and Logistic Regression as the meta learner.
         """
         from sklearn.ensemble import StackingClassifier, AdaBoostClassifier
+        from sklearn.tree import DecisionTreeClassifier
         from sklearn.linear_model import LogisticRegression
         from xgboost import XGBClassifier
         from catboost import CatBoostClassifier
 
         catboost_clf = CatBoostClassifier(
-            depth=6,
-            iterations=200,
-            l2_leaf_reg=3,
-            learning_rate=0.1,
-            bootstrap_type='Bernoulli',
-            subsample=0.8,
-            verbose=0,
-            random_state=42
+            random_strength=1,
+            learning_rate=0.02,
+            iterations=1250,
+            depth=5,
+            border_count=64,
+            bagging_temperature=0
         )
 
         xgboost_clf = XGBClassifier(
             max_depth=4,
-            n_estimators=100,
-            learning_rate=0.2,
-            subsample=0.9,
-            eval_metric='logloss',
+            n_estimators=200,
+            learning_rate=0.1,
+            subsample=1.0,
             random_state=42
         )
 
         adaboost_clf = AdaBoostClassifier(
+            estimator = DecisionTreeClassifier(max_depth=3),
             n_estimators=200,
             learning_rate=1.0,
             random_state=42
@@ -216,8 +215,8 @@ class ModelFactory:
         print("Best parameters:", search.best_params_)
         print("Best cross-validated accuracy:", search.best_score_)
 
-        y_pred = search.predict(X_val)
-        y_pred_train = search.predict(X_train)
+        y_pred = search.best_estimator_.predict(X_val)
+        y_pred_train = search.best_estimator_.predict(X_train)
 
         print("Accuracy on training set:", accuracy_score(y_train, y_pred_train))
         print("Accuracy on validation set:", accuracy_score(y_val, y_pred))

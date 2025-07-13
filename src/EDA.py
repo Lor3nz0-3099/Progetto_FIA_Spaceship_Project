@@ -55,7 +55,7 @@ class EDAAnalyzer:
             # Bar chart: shows the absolute frequency of values
             plt.subplot(1, 2, 1)
             sns.countplot(x=df[col], palette='Set2')
-            plt.title(f'Distribuzione di {col}', fontsize=12)
+            plt.title(f'{col} distribution', fontsize=12)
             plt.xlabel(col, fontsize=10)
             plt.ylabel('Frequency', fontsize=10)
 
