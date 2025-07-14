@@ -63,4 +63,4 @@ if __name__ == "__main__":
         test_choice = input("Do you want to test the model on test data? (y/n): ").strip().lower()
         if test_choice == 'y':
             testing = Testing()
-            testing.test_model(model, model_type)
+            testing.test_model(model)

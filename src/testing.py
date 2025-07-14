@@ -1,5 +1,4 @@
 # codice che valuta il test.csv con il best model trovato e salvato su joblib
-import joblib
 import pandas as pd
 from preliminar_operations import PreliminarOperations
 from model_factory import ModelFactory
@@ -15,7 +14,7 @@ class Testing:
         print(test_df.head(5))
         return test_df
     
-    def test_model(self, model, model_type):
+    def test_model(self, model):
         """
         Test the model using the new pipeline approach.
         The model already contains all preprocessing steps including logical imputations.
