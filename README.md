@@ -156,7 +156,7 @@ Catboost Confusion Matrix and ROC curve
 ![Catboost Confusion Matrix and ROC curve](plots/CatBoost_analysis.png)
 
 Catboost Feature Importances:
-![Catboost Features Importances](plots/CatBoost_importacnces.png)
+![Catboost Features Importances](plots/Catboost_importacnces.png)
 
 
 ## 👨‍💻 Development
