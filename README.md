@@ -169,5 +169,5 @@ Project developed for the Fundamentals of Artificial Intelligence course, implem
 
 ---
 
-*For questions or issues, verify that all modules are correctly importable and that datasets are present in the `data/` folder.*
-*There are already pre-trained model (MinMax Scaling and KNNImputer were chosen) in the `models/` directory, feel free to delete some if you want to train a new model"
+*For questions or issues, verify that all modules are correctly importable and that datasets are present in the `data/` folder.
+ There are already pre-trained model (MinMax Scaling and KNNImputer were chosen) in the `models/` directory, feel free to delete some if you want to train a new model"
