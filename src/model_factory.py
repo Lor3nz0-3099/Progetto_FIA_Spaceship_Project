@@ -1,3 +1,4 @@
+# Import necessary libraries and modules
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer, KNNImputer
@@ -8,10 +9,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from custom_transformers import FeatureEngineeringTransformer, LogicalImputationTransformer, TransformBooleanToInt
 
-
+# Factory class to create and manage different machine learning models and pipelines
 class ModelFactory:
     def __init__(self):
-        self.kwargs = {}
+        self.kwargs = {} # Optional keyword arguments to pass to models
 
     def create_model(self, model_type):
         """
@@ -92,6 +93,7 @@ class ModelFactory:
         from xgboost import XGBClassifier
         from catboost import CatBoostClassifier
 
+        # Define base learners
         catboost_clf = CatBoostClassifier(
             random_strength=1,
             learning_rate=0.02,
@@ -147,21 +149,25 @@ class ModelFactory:
         imputation_numerical_choice = input("Choose imputation strategy:\n1. Mean\n2. KNN\nEnter choice (1/2): ").strip()
         imputation_numerical = SimpleImputer(strategy='mean') if imputation_numerical_choice == '1' else KNNImputer(n_neighbors=5)
 
+        # Numerical preprocessing pipeline
         numerical_transformer = Pipeline(steps=[
             ('imputer', imputation_numerical),
             ('scaler', scaler) if scaler else ('passthrough', 'passthrough')
         ])
 
+        # Categorical preprocessing pipeline
         categorical_transformer = Pipeline(steps=[
             ('imputer', SimpleImputer(strategy='most_frequent')),
             ('onehot', OneHotEncoder(handle_unknown='ignore'))
         ])
 
+        
         main_preprocessor = ColumnTransformer(transformers=[
             ('num', numerical_transformer, numerical_cols),
             ('cat', categorical_transformer, categorical_cols)
         ])
 
+        # Final preprocessing pipeline with custom steps
         full_preprocessor = Pipeline(steps=[
             ('feature_engineering', FeatureEngineeringTransformer()),
             ('logical_imputation', LogicalImputationTransformer()),
@@ -176,17 +182,22 @@ class ModelFactory:
         Builds the full pipeline, runs GridSearchCV or RandomizedSearchCV,
         fits on training data, and evaluates on training and validation sets.
         """
+
+        # Define which features are numerical and which are categorical
         numerical_cols = ['Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Cabin_num', 'TotalSpent', 'FamilySize']
         categorical_cols = ['Deck', 'Side', 'CryoSleep', 'HomePlanet', 'Destination', 'VIP']
 
+        # Build preprocessing and model pipelines
         preprocessor = self.preprocessing_pipeline(numerical_cols, categorical_cols)
         model, param_grid = self.create_model(choice)
 
+        # Combine preprocessing and classifier into one pipeline
         pipeline = Pipeline(steps=[
             ('preprocessor', preprocessor),
             ('classifier', model)
         ])
 
+        # Cross-validation strategy
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
         # Use RandomizedSearchCV for CatBoost, GridSearchCV for others
@@ -209,27 +220,33 @@ class ModelFactory:
                 scoring='accuracy',
                 n_jobs=-1
             )
-
+        
+        # Fit the model with training data using the selected search strategy
         search.fit(X_train, y_train)
 
         print("Best parameters:", search.best_params_)
         print("Best cross-validated accuracy:", search.best_score_)
 
+        # Make predictions on validation and training sets
         y_pred = search.best_estimator_.predict(X_val)
         y_pred_train = search.best_estimator_.predict(X_train)
 
+        # Print performance metrics
         print("Accuracy on training set:", accuracy_score(y_train, y_pred_train))
         print("Accuracy on validation set:", accuracy_score(y_val, y_pred))
         print("Classification report:\n", classification_report(y_val, y_pred))
 
+        # Plot confusion matrix and ROC curve
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
+        # Confusion matrix heatma
         conf_matrix = confusion_matrix(y_val, y_pred)
         sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax1)
         ax1.set_xlabel("Predicted")
         ax1.set_ylabel("Actual")
         ax1.set_title("Confusion Matrix on Validation Set")
 
+        # ROC curve if model supports probability prediction
         if hasattr(search.best_estimator_.named_steps['classifier'], "predict_proba"):
             y_proba = search.predict_proba(X_val)[:, 1]
             fpr, tpr, _ = roc_curve(y_val, y_proba)
@@ -242,6 +259,7 @@ class ModelFactory:
             ax2.set_title('Receiver Operating Characteristic (ROC)')
             ax2.legend(loc='lower right')
         else:
+            # If model doesn't support probabilities, show placeholder text
             ax2.text(0.5, 0.5, 'ROC curve not available\nfor this model',
                      ha='center', va='center', transform=ax2.transAxes)
             ax2.set_title('ROC Curve - Not Available')
@@ -249,6 +267,7 @@ class ModelFactory:
         plt.tight_layout()
         plt.show()
 
+        # If model supports feature importances, plot them
         if hasattr(search.best_estimator_.named_steps['classifier'], 'feature_importances_'):
             self.feature_importances(search.best_estimator_, X_train)
 
@@ -262,12 +281,15 @@ class ModelFactory:
             importances = model.named_steps['classifier'].feature_importances_
 
             try:
+                # Extract transformed feature names from preprocessing pipeline
                 main_preprocessor = model.named_steps['preprocessor'].named_steps['preprocessing']
                 feature_names = []
 
+                # Manually define numerical features (must match your pipeline)
                 numerical_cols = ['Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Cabin_num', 'TotalSpent', 'FamilySize']
                 feature_names.extend(numerical_cols)
 
+                # Define categorical features and get their one-hot encoded names
                 categorical_cols = ['Deck', 'Side', 'CryoSleep', 'HomePlanet', 'Destination', 'VIP']
                 if hasattr(main_preprocessor.named_transformers_['cat'].named_steps['onehot'], 'get_feature_names_out'):
                     cat_feature_names = main_preprocessor.named_transformers_['cat'].named_steps['onehot'].get_feature_names_out(categorical_cols)
@@ -280,10 +302,12 @@ class ModelFactory:
                 print(f"Could not extract feature names: {e}")
                 feature_names = [f"Feature_{i}" for i in range(len(importances))]
 
+            # Check for mismatch between names and importance scores
             if len(feature_names) != len(importances):
                 print(f"Warning: Number of feature names ({len(feature_names)}) doesn't match number of importances ({len(importances)})")
                 feature_names = [f"Feature_{i}" for i in range(len(importances))]
 
+             # Group importances by base name (optional, useful for one-hot features)
             grouped_importances = {}
             for i, feature_name in enumerate(feature_names):
                 if '_' in feature_name and feature_name not in ['Cabin_num', 'TotalSpent', 'FamilySize']:
@@ -292,10 +316,12 @@ class ModelFactory:
                 else:
                     grouped_importances[feature_name] = importances[i]
 
+             # Sort by importance
             grouped_names = list(grouped_importances.keys())
             grouped_values = list(grouped_importances.values())
             indices = sorted(range(len(grouped_values)), key=lambda i: grouped_values[i], reverse=True)
 
+            # Plot grouped importances
             plt.figure(figsize=(12, 8))
             plt.title("Feature Importances (Grouped)")
             plt.bar(range(len(grouped_values)), [grouped_values[i] for i in indices], align='center')

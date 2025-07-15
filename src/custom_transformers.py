@@ -30,7 +30,7 @@ class FeatureEngineeringTransformer(BaseEstimator, TransformerMixin):
         else:
             X = X.copy()
         
-        # Split Cabin column
+         # Split 'Cabin' into three separate features: Deck, Cabin_num, Side
         if 'Cabin' in X.columns:
             X[['Deck', 'Cabin_num', 'Side']] = X['Cabin'].str.split('/', expand=True)
             X = X.drop(['Cabin'], axis=1)
@@ -115,7 +115,7 @@ class LogicalImputationTransformer(BaseEstimator, TransformerMixin):
             
             X = X.apply(fill_location_from_group, axis=1)
         
-        # Fill missing CryoSleep using expenses logic
+        # Infer CryoSleep: if a passenger spent absolutely nothing, assume they were asleep
         if 'CryoSleep' in X.columns:
             expense_cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
             available_expense_cols = [col for col in expense_cols if col in X.columns]
