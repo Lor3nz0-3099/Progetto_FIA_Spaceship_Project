@@ -8,7 +8,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt                                                       
 from custom_transformers import FeatureEngineeringTransformer, LogicalImputationTransformer, TransformBooleanToInt  
 
-
+# Factory class to create and manage different machine learning models and pipelines
 class ModelFactory:
     """
     Factory class for creating, training, and evaluating machine learning models.
